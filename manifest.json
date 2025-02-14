@@ -1,20 +1,33 @@
 {
   "manifest_version": 3,
-  "name": "DeepGuard - Deepfake Detection",
-  "version": "1.0.0",
+  "name": "DeepScan - Deepfake Videos Detection",
+  "version": "0.1.0",
   "description": "Detect potential deepfake videos by analyzing them with advanced AI technology",
-  "permissions": ["activeTab", "storage", "tabs"],
-  "host_permissions": ["LARAVEL_API_URL/*"],
+  "icons": {
+    "16": "assets/icons/icon16.png",
+    "64": "assets/icons/icon64.png",
+    "128": "assets/icons/icon128.png"
+  },
+  "permissions": ["activeTab", "storage", "tabs", "cookies", "webRequest"],
+  "host_permissions": ["http://localhost:8000/*"],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["lib/fontawesome/webfonts/*"],
+      "matches": ["<all_urls>"]
+    }
+  ],
   "action": {
     "default_popup": "src/popup/popup.html",
     "default_icon": {
-      "16": "assets/icons/icon16.png",
-      "48": "assets/icons/icon48.png",
-      "128": "assets/icons/icon128.png"
+      "16": "assets/icons/icon16.png"
     }
   },
   "background": {
-    "service_worker": "src/background/background.js"
+    "service_worker": "src/background/background.js",
+    "type": "module"
   },
   "content_scripts": [
     {
