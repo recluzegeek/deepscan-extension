@@ -7,7 +7,7 @@ body {
   height: 530px;
   overflow: hidden;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, sans-serif;
-  background: #f8f9fa; /* Light white grey */
+  background: #f3f4f6; /* Light grey background */
 }
 
 #app {
@@ -158,14 +158,12 @@ body {
   height: calc(100% - 16px);
   margin: 8px;
   background: white;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  overflow-y: auto;
-  overflow-x: hidden;
-  position: relative;
+  border-radius: 12px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
 }
 
-/* Video header */
+/* Header */
 .video-header {
   padding: 12px 16px;
   display: flex;
@@ -178,60 +176,244 @@ body {
   z-index: 10;
 }
 
-/* Video grid */
-.video-grid {
-  padding: 16px;
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
+.header-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-/* Analyze FAB - adjust position for new margins */
-.analyze-fab {
+.header-content h2 {
+  margin: 0;
+  font-size: 15px;
+  color: #1f2937;
+  font-weight: 600;
+}
+
+.video-count {
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  color: #6b7280;
+  background: #f3f4f6;
+}
+
+.logout-btn {
+  padding: 6px 12px;
+  border: none;
+  background: #fee2e2;
+  color: #dc2626;
+  font-size: 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.logout-btn:hover {
+  background: #fecaca;
+}
+
+/* Video list */
+.video-list {
+  padding: 8px;
+  overflow-y: auto;
+  max-height: calc(100% - 120px); /* Adjusted to make room for button */
+  margin-bottom: 50px; /* Add space for fixed button */
+}
+
+.video-item {
+  display: flex;
+  align-items: flex-start;
+  padding: 10px;
+  margin-bottom: 8px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.video-item:hover {
+  border-color: #2563eb;
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.1);
+}
+
+.video-item.selected {
+  background: #f0f7ff;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 1px #2563eb;
+}
+
+/* Thumbnail */
+.video-thumbnail {
+  width: 120px;
+  height: 68px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #f3f4f6;
+  position: relative;
+  margin-right: 12px;
+  flex-shrink: 0;
+}
+
+.video-thumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.video-duration {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  background: rgba(0, 0, 0, 0.75);
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+/* Video info */
+.video-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.video-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: #1f2937;
+  margin-bottom: 4px;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.video-type {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #6b7280;
+  font-size: 11px;
+  margin-bottom: 2px;
+}
+
+.video-type i {
+  font-size: 12px;
+}
+
+.video-page {
+  color: #9ca3af;
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Empty state */
+.no-videos {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  color: #6b7280;
+  gap: 8px;
+  margin-top: 40px;
+}
+
+.no-videos i {
+  font-size: 24px;
+  opacity: 0.5;
+}
+
+.no-videos p {
+  font-size: 13px;
+  margin: 0;
+  color: #6b7280;
+}
+
+/* Error message */
+.error-message {
+  margin: 8px;
+  padding: 8px 12px;
+  background: #fee2e2;
+  border-radius: 6px;
+  color: #dc2626;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Analyze button */
+.analyze-btn {
   position: fixed;
-  bottom: 24px; /* Adjusted for container margin */
-  right: 24px; /* Adjusted for container margin */
-  width: 56px;
-  height: 56px;
-  border-radius: 28px;
-  background: #2563eb;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  background: #4285f4;
   color: white;
   border: none;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  padding: 12px;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s;
-  z-index: 20;
+  width: calc(100% - 16px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: background-color 0.2s;
+  gap: 8px;
 }
 
-/* Input groups */
-.input-group {
-  position: relative;
-  width: 100%;
-  margin-bottom: 16px;
+.analyze-btn:hover {
+  background: #3367d6;
 }
 
-.input-group i:first-child {
-  position: absolute;
-  left: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #6b7280;
-  font-size: 16px;
+/* Fix loading spinner animation */
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
-.login-input {
-  width: 100%;
-  height: 44px;
-  padding: 0 40px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  font-size: 14px;
-  background: #f9fafb;
-  transition: all 0.2s;
-  box-sizing: border-box;
+.loading-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #f3f4f6;
+  border-top: 2px solid #3b82f6;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+/* Update loading container spinner */
+.loading-container .loading-spinner {
+  position: static;
+  margin-bottom: 12px;
+  width: 24px;
+  height: 24px;
+  border: 3px solid #f3f4f6;
+  border-top: 3px solid #3b82f6;
+}
+
+/* Login button spinner */
+.login-btn .loading-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top: 2px solid white;
+  position: static;
+  transform: none;
 }
 
 /* Remove any fixed heights */
@@ -351,18 +533,6 @@ body {
 
 .divider {
   color: #e5e7eb;
-}
-
-/* Update loading spinner for login */
-.login-btn .loading-spinner {
-  width: 16px;
-  height: 16px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top: 2px solid white;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  position: static;
-  transform: none;
 }
 
 .loading-container {
@@ -513,26 +683,6 @@ body {
 .progress-text {
   font-size: 12px;
   color: #4b5563;
-}
-
-.analyze-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  width: 100%;
-  padding: 12px;
-  background-color: #2563eb;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.analyze-btn:hover:not(:disabled) {
-  background-color: #1d4ed8;
 }
 
 .analyze-btn:disabled {
@@ -813,4 +963,9 @@ body {
   font-size: 24px;
   margin-bottom: 8px;
   opacity: 0.5;
+}
+
+/* Make sure button stays on top */
+.analyze-btn {
+  z-index: 100;
 }
