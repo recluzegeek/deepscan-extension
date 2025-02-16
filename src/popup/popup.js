@@ -1,4 +1,4 @@
-import { createApp, ref, onMounted, h, Fragment } from "../lib/vue.runtime.esm-browser.js";
+import { createApp, ref, onMounted, h } from "../lib/vue.runtime.esm-browser.js";
 import * as api from "../utils/api.js";
 import LoginView from "../components/LoginView.js";
 import VideoView from "../components/VideoView.js";
@@ -14,33 +14,54 @@ const app = createApp({
     const videos = ref([]);
     const error = ref(null);
 
-    const loadVideos = async () => {
+    const scanForVideos = async () => {
       try {
-        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        loading.value = true;
+        error.value = null;
 
-        // First try to get videos from storage for this tab
-        const storedData = await chrome.storage.local.get(`videos_${tab.id}`);
-        if (storedData[`videos_${tab.id}`]) {
-          videos.value = storedData[`videos_${tab.id}`];
-          return;
+        // Get active tab
+        const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (!tabs[0]?.id) {
+          throw new Error("No active tab found");
         }
 
-        // If no stored videos, inject content script and get fresh data
-        await chrome.scripting.executeScript({
-          target: { tabId: tab.id },
-          files: ["src/content/content.js"],
+        // Inject content script
+        try {
+          await chrome.scripting.executeScript({
+            target: { tabId: tabs[0].id },
+            files: ["src/content/content.js"]
+          });
+        } catch (err) {
+          if (err.message.includes('Cannot access chrome://')) {
+            error.value = "Cannot scan chrome:// pages";
+            return;
+          }
+          throw err;
+        }
+
+        // Get videos
+        const response = await new Promise((resolve) => {
+          chrome.tabs.sendMessage(tabs[0].id, { action: "getVideos" }, (response) => {
+            if (chrome.runtime.lastError) {
+              console.error('Message error:', chrome.runtime.lastError);
+              resolve(null);
+            } else {
+              resolve(response);
+            }
+          });
         });
 
-        chrome.tabs.sendMessage(tab.id, { action: "getVideos" }, async (response) => {
-          if (response?.videos) {
-            videos.value = response.videos;
-            // Store videos for this tab
-            await chrome.storage.local.set({ [`videos_${tab.id}`]: response.videos });
-          }
-        });
+        if (response?.videos) {
+          videos.value = response.videos;
+        } else {
+          videos.value = [];
+        }
       } catch (err) {
-        console.log("Error loading videos:", err);
-        error.value = "Failed to load videos";
+        console.error("Error scanning videos:", err);
+        error.value = "Failed to scan videos";
+        videos.value = [];
+      } finally {
+        loading.value = false;
       }
     };
 
@@ -51,7 +72,7 @@ const app = createApp({
           const isValid = await api.verifyToken();
           isLoggedIn.value = isValid;
           if (isValid) {
-            await loadVideos();
+            await scanForVideos();
           }
         }
       } catch (err) {
@@ -64,11 +85,14 @@ const app = createApp({
 
     onMounted(async () => {
       await checkAuthStatus();
+      if (isLoggedIn.value) {
+        await scanForVideos();
+      }
     });
 
     const handleLoginSuccess = async () => {
       isLoggedIn.value = true;
-      await loadVideos();
+      await scanForVideos();
     };
 
     const handleLogout = async () => {
@@ -76,11 +100,8 @@ const app = createApp({
         await api.logout();
         isLoggedIn.value = false;
         videos.value = [];
-        // Clear stored videos and token
-        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        await chrome.storage.local.remove([`videos_${tab.id}`, "token"]);
       } catch (err) {
-        console.log("Logout error:", err);
+        console.error("Logout error:", err);
         error.value = "Logout failed";
       }
     };
@@ -90,7 +111,7 @@ const app = createApp({
         loading.value
           ? h("div", { class: "loading-container" }, [
               h("div", { class: "loading-spinner" }),
-              h("p", null, "Loading..."),
+              h("p", null, "Scanning for videos..."),
             ])
           : isLoggedIn.value
           ? h(VideoView, {

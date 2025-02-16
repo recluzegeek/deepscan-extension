@@ -767,3 +767,50 @@ body {
 .icon-button:hover {
   color: #1f2937;
 }
+
+/* Video sections */
+.video-section {
+  margin: 16px 0;
+  background: white;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.section-title {
+  font-size: 16px;
+  color: #1f2937;
+  margin: 0 0 12px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.video-count-small {
+  font-size: 13px;
+  color: #6b7280;
+  font-weight: normal;
+}
+
+/* Video grid adjustments */
+.video-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-top: 12px;
+}
+
+/* Empty state adjustments */
+.empty-state {
+  text-align: center;
+  padding: 24px;
+  color: #6b7280;
+  background: #f9fafb;
+  border-radius: 6px;
+}
+
+.empty-state i {
+  font-size: 24px;
+  margin-bottom: 8px;
+  opacity: 0.5;
+}

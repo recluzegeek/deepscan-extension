@@ -1,160 +1,109 @@
 import { ref, h } from "../lib/vue.runtime.esm-browser.js";
-import * as api from "../utils/api.js";
 
 export default {
   name: "VideoView",
   props: {
-    videos: {
-      type: Array,
-      required: true,
-    },
+    videos: Array,
+    error: String,
   },
   emits: ["logout"],
   setup(props, { emit }) {
-    const loading = ref(false);
-    const error = ref(null);
-    const selectedVideos = ref([]);
-    const uploadProgress = ref(0);
+    const selectedVideos = ref(new Set());
 
     const toggleVideoSelection = (video) => {
-      const index = selectedVideos.value.findIndex((v) => v.url === video.url);
-      if (index === -1) {
-        if (selectedVideos.value.length >= 4) {
-          error.value = "Maximum 4 videos can be selected at once";
-          return;
-        }
-        selectedVideos.value.push(video);
+      if (selectedVideos.value.has(video.url)) {
+        selectedVideos.value.delete(video.url);
       } else {
-        selectedVideos.value.splice(index, 1);
+        selectedVideos.value.add(video.url);
       }
-      error.value = null;
-    };
-
-    const handleAnalyze = async () => {
-      if (selectedVideos.value.length === 0) {
-        error.value = "Please select at least one video";
-        return;
-      }
-
-      try {
-        loading.value = true;
-        error.value = null;
-
-        // Simulate upload progress
-        const progressInterval = setInterval(() => {
-          if (uploadProgress.value < 90) {
-            uploadProgress.value += 10;
-          }
-        }, 500);
-
-        await api.sendVideosForAnalysis(selectedVideos.value);
-        uploadProgress.value = 100;
-
-        setTimeout(() => {
-          selectedVideos.value = [];
-          uploadProgress.value = 0;
-          loading.value = false;
-          alert("Videos sent for analysis. Check the web platform for results.");
-        }, 500);
-
-        clearInterval(progressInterval);
-      } catch (err) {
-        error.value = err.message;
-        loading.value = false;
-        uploadProgress.value = 0;
-      }
-    };
-
-    const handleLogout = async () => {
-      try {
-        await api.logout();
-        emit("logout");
-      } catch (err) {
-        error.value = err.message;
-      }
-    };
-
-    const formatDuration = (seconds) => {
-      if (!seconds) return "";
-      const hrs = Math.floor(seconds / 3600);
-      const mins = Math.floor((seconds % 3600) / 60);
-      const secs = Math.floor(seconds % 60);
-
-      if (hrs > 0) {
-        return `${hrs}:${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
-      }
-      return `${mins}:${secs.toString().padStart(2, "0")}`;
     };
 
     return () =>
       h("div", { class: "video-container" }, [
+        // Header with logout
         h("div", { class: "video-header" }, [
-          h("div", { class: "header-left" }, [h("span", { class: "video-count" }, `${selectedVideos.value.length}/4`)]),
+          h("div", { class: "header-content" }, [
+            h("h2", null, "Videos"),
+            h("span", { class: "video-count" }, 
+              `${selectedVideos.value.size} selected`
+            ),
+          ]),
           h(
             "button",
             {
-              class: "icon-button",
-              onClick: handleLogout,
-              title: "Logout",
+              class: "logout-btn",
+              onClick: () => emit("logout"),
             },
-            [h("i", { class: "fas fa-sign-out-alt" })]
+            [h("i", { class: "fas fa-sign-out-alt" }), "Logout"]
           ),
         ]),
 
-        props.videos.length === 0
-          ? h("div", { class: "empty-state" }, [
-              h("i", { class: "fas fa-film" }),
-              h("p", {}, "No videos found on this page"),
-            ])
-          : h(
-              "div",
-              { class: "video-grid" },
-              props.videos.map((video) =>
-                h(
-                  "div",
-                  {
-                    class: `video-card ${selectedVideos.value.some((v) => v.url === video.url) ? "selected" : ""}`,
-                    onClick: () => toggleVideoSelection(video),
-                  },
-                  [
-                    h("div", { class: "thumbnail-container" }, [
-                      h("img", {
-                        src: video.thumbnail,
-                        alt: video.title,
-                        loading: "lazy",
+        // Videos list
+        props.videos.length > 0
+          ? h("div", { class: "video-list" }, [
+              ...props.videos.map((video) =>
+                h("div", {
+                  class: [
+                    "video-item",
+                    { selected: selectedVideos.value.has(video.url) },
+                  ],
+                  onClick: () => toggleVideoSelection(video),
+                }, [
+                  // Thumbnail or video type icon
+                  h("div", { class: "video-thumbnail" }, [
+                    video.thumbnail 
+                      ? h("img", { src: video.thumbnail })
+                      : h("i", { class: "fas fa-video" }),
+                    video.duration && h("span", { class: "video-duration" }, 
+                      formatDuration(video.duration)
+                    ),
+                  ]),
+                  // Video info
+                  h("div", { class: "video-info" }, [
+                    h("div", { class: "video-title" }, video.title),
+                    h("div", { class: "video-type" }, [
+                      h("i", { 
+                        class: video.type === 'youtube' 
+                          ? 'fab fa-youtube' 
+                          : 'fas fa-play-circle'
                       }),
-                      h("div", { class: "duration-badge" }, formatDuration(video.duration)),
-                      h("div", { class: "selection-overlay" }, [
-                        h("i", {
-                          class: `fas fa-${
-                            selectedVideos.value.some((v) => v.url === video.url) ? "check-circle" : "circle"
-                          }`,
-                        }),
-                      ]),
+                      video.type === 'youtube' ? 'YouTube' : 'HTML5 Video',
                     ]),
-                    h("div", { class: "video-info" }, [
-                      h("h3", { class: "video-title" }, video.title),
-                      h("span", { class: "video-type" }, [
-                        h("i", {
-                          class: `fas fa-${video.type === "youtube" ? "youtube" : "video"}`,
-                        }),
-                      ]),
-                    ]),
-                  ]
-                )
-              )
-            ),
+                    h("div", { class: "video-page" }, video.pageTitle),
+                  ]),
+                ])
+              ),
+            ])
+          : h("div", { class: "no-videos" }, [
+              h("i", { class: "fas fa-video-slash" }),
+              h("p", null, "No videos found"),
+            ]),
 
-        selectedVideos.value.length > 0 &&
+        // Error message if any
+        props.error && h("div", { class: "error-message" }, [
+          h("i", { class: "fas fa-exclamation-circle" }),
+          props.error,
+        ]),
+
+        // Analyze button
+        selectedVideos.value.size > 0 &&
           h(
             "button",
             {
-              class: "analyze-fab",
-              disabled: loading.value,
-              onClick: handleAnalyze,
+              class: "analyze-btn",
+              onClick: () => {
+                // Handle analysis here
+              },
             },
-            [loading.value ? h("div", { class: "loading-spinner" }) : h("i", { class: "fas fa-search" })]
+            [h("i", { class: "fas fa-play" }), "Analyze Selected"]
           ),
       ]);
   },
 };
+
+function formatDuration(seconds) {
+  if (!seconds) return '';
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+}
