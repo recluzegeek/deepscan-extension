@@ -4,60 +4,77 @@ let sessionVideos = [];
 // Listen for messages from popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "getVideos") {
-    // Do fresh scan and combine with session videos
-    const newVideos = findVideos();
-    sessionVideos = mergeVideos(sessionVideos, newVideos);
-    sendResponse({ videos: sessionVideos });
+    // Get current videos and merge with stored videos
+    chrome.storage.local.get(['sessionVideos'], async (result) => {
+      const storedVideos = result.sessionVideos || [];
+      const newVideos = findVideos();
+      const mergedVideos = mergeVideos(storedVideos, newVideos);
+      
+      // Store merged videos back
+      await chrome.storage.local.set({ sessionVideos: mergedVideos });
+      sendResponse({ videos: mergedVideos });
+    });
     return true;
   }
 });
 
 function findVideos() {
   const videos = [];
+  const youtubeUrls = new Set(); // Track YouTube URLs to avoid duplicates
   
   try {
-    // 1. Check for YouTube main video
+    // 1. Check for YouTube main video first
     if (window.location.hostname.includes('youtube.com') && 
         window.location.pathname.includes('/watch')) {
       const videoId = new URLSearchParams(window.location.search).get('v');
       if (videoId) {
+        const youtubeUrl = `https://www.youtube.com/watch?v=${videoId}`;
+        youtubeUrls.add(youtubeUrl);
         videos.push({
-          url: window.location.href,
+          url: youtubeUrl,
           title: document.title.replace('- YouTube', '').trim(),
           type: 'youtube',
           thumbnail: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
-          pageTitle: document.title
+          pageTitle: document.title,
+          timestamp: new Date().toISOString() // Add timestamp for sorting
         });
       }
     }
 
-    // 2. Check for HTML5 video elements
-    document.querySelectorAll('video').forEach(video => {
-      if (video.src || video.querySelector('source')) {
-        const rect = video.getBoundingClientRect();
-        if (rect.width > 0 && rect.height > 0) {
+    // 2. Check for embedded YouTube videos
+    document.querySelectorAll('iframe[src*="youtube.com/embed/"]').forEach(iframe => {
+      const videoId = iframe.src.match(/\/embed\/([^/?]+)/)?.[1];
+      if (videoId) {
+        const youtubeUrl = `https://www.youtube.com/watch?v=${videoId}`;
+        if (!youtubeUrls.has(youtubeUrl)) {
+          youtubeUrls.add(youtubeUrl);
           videos.push({
-            url: video.src || video.querySelector('source').src,
-            title: video.title || findVideoTitle(video) || document.title,
-            type: 'html5',
-            duration: Math.round(video.duration) || null,
-            pageTitle: document.title
+            url: youtubeUrl,
+            title: iframe.title || 'Embedded YouTube Video',
+            type: 'youtube',
+            thumbnail: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
+            pageTitle: document.title,
+            timestamp: new Date().toISOString() // Add timestamp for sorting
           });
         }
       }
     });
 
-    // 3. Check for embedded YouTube videos
-    document.querySelectorAll('iframe[src*="youtube.com/embed/"]').forEach(iframe => {
-      const videoId = iframe.src.match(/\/embed\/([^/?]+)/)?.[1];
-      if (videoId) {
-        videos.push({
-          url: `https://www.youtube.com/watch?v=${videoId}`,
-          title: iframe.title || 'Embedded YouTube Video',
-          type: 'youtube',
-          thumbnail: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
-          pageTitle: document.title
-        });
+    // 3. Check for HTML5 video elements (skip if they're YouTube videos)
+    document.querySelectorAll('video').forEach(video => {
+      const videoUrl = video.src || video.querySelector('source')?.src;
+      if (videoUrl && !videoUrl.includes('youtube.com') && !isYouTubeVideo(video)) {
+        const rect = video.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+          videos.push({
+            url: videoUrl,
+            title: video.title || findVideoTitle(video) || document.title,
+            type: 'html5',
+            duration: Math.round(video.duration) || null,
+            pageTitle: document.title,
+            timestamp: new Date().toISOString() // Add timestamp for sorting
+          });
+        }
       }
     });
 
@@ -68,8 +85,16 @@ function findVideos() {
   return videos;
 }
 
+function isYouTubeVideo(video) {
+  // Check if video is part of YouTube player
+  return (
+    video.closest('.html5-video-player') !== null || // YouTube main player
+    video.closest('[class*="youtube"]') !== null || // Common YouTube class patterns
+    video.closest('iframe[src*="youtube"]') !== null // YouTube iframe
+  );
+}
+
 function findVideoTitle(video) {
-  // Try to find the best title for the video
   const container = video.closest('div, article, section');
   return (
     video.title ||
@@ -91,5 +116,8 @@ function mergeVideos(oldVideos, newVideos) {
     }
   });
   
-  return merged;
+  // Sort by timestamp, newest first
+  return merged.sort((a, b) => {
+    return new Date(b.timestamp || 0) - new Date(a.timestamp || 0);
+  });
 }

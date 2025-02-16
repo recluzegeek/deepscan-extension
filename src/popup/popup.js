@@ -51,15 +51,20 @@ const app = createApp({
           });
         });
 
-        if (response?.videos) {
-          videos.value = response.videos;
+        // Get stored videos even if current scan failed
+        const stored = await chrome.storage.local.get(['sessionVideos']);
+        if (response?.videos || stored.sessionVideos) {
+          videos.value = response?.videos || stored.sessionVideos || [];
         } else {
           videos.value = [];
         }
       } catch (err) {
         console.error("Error scanning videos:", err);
         error.value = "Failed to scan videos";
-        videos.value = [];
+        
+        // Try to get stored videos even if scan failed
+        const stored = await chrome.storage.local.get(['sessionVideos']);
+        videos.value = stored.sessionVideos || [];
       } finally {
         loading.value = false;
       }
@@ -98,6 +103,7 @@ const app = createApp({
     const handleLogout = async () => {
       try {
         await api.logout();
+        await chrome.storage.local.remove(['sessionVideos']);
         isLoggedIn.value = false;
         videos.value = [];
       } catch (err) {
