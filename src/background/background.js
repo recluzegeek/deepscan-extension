@@ -1,3 +1,5 @@
+import { CONFIG } from '../config/config.js';
+
 let authTabId = null;
 
 // Listen for messages from content scripts and popup
@@ -24,7 +26,7 @@ chrome.runtime.onInstalled.addListener((details) => {
 
 // Error logging function
 function logError(error) {
-  console.error("Server:", "http://localhost:8000");
+  console.error("Server:", CONFIG.API_BASE_URL);
   console.error("Error details:", {
     message: error.message,
     context: error.context,
@@ -45,10 +47,10 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 
 async function initializeAuth() {
   const authUrl =
-    `${api.baseUrl}/oauth/authorize?` +
+    `${CONFIG.API_BASE_URL}/oauth/authorize?` +
     new URLSearchParams({
       client_id: "YOUR_CLIENT_ID",
-      redirect_uri: `${api.baseUrl}/oauth/callback`,
+      redirect_uri: `${CONFIG.API_BASE_URL}/oauth/callback`,
       response_type: "code",
       scope: "",
     }).toString();
@@ -60,7 +62,7 @@ async function initializeAuth() {
 async function handleAuthCode(code, tabId) {
   try {
     // Exchange code for token
-    const response = await fetch(`${api.baseUrl}/oauth/token`, {
+    const response = await fetch(`${CONFIG.API_BASE_URL}/oauth/token`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -69,7 +71,7 @@ async function handleAuthCode(code, tabId) {
         grant_type: "authorization_code",
         client_id: "YOUR_CLIENT_ID",
         client_secret: "YOUR_CLIENT_SECRET",
-        redirect_uri: `${api.baseUrl}/oauth/callback`,
+        redirect_uri: `${CONFIG.API_BASE_URL}/oauth/callback`,
         code,
       }),
     });

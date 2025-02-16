@@ -1,130 +1,123 @@
-const BASE_URL = "http://localhost:8000";
-const API_BASE_URL = `${BASE_URL}/api`;
+import { CONFIG } from '../config/config.js';
 
 export async function login(email, password) {
-  console.log("Connecting to server:", BASE_URL);
   try {
-    // First, get the CSRF cookie
-    console.log("Fetching CSRF cookie...");
-    await fetch(`${BASE_URL}/sanctum/csrf-cookie`, {
-      credentials: "include",
-    });
-
-    const response = await fetch(`${API_BASE_URL}/auth/login`, {
+    const response = await fetch(`${CONFIG.FULL_API_URL}/auth/login`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      credentials: "include",
       body: JSON.stringify({ email, password }),
     });
 
-    console.log("Login response status:", response.status);
-    let data;
-    try {
-      data = await response.json();
-      console.log("Login response:", data);
-    } catch (err) {
-      console.error("Failed to parse response:", err);
-      throw new Error("Server returned invalid response");
-    }
+    const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(data.message || data.error || "Login failed");
+      throw new Error(data.message || "Login failed");
     }
+
+    // Store both token and user data
+    await chrome.storage.local.set({
+      token: data.token,
+      lastLogin: new Date().getTime(),
+    });
 
     return data;
   } catch (error) {
-    console.error("Login error:", error);
-    if (error instanceof TypeError && error.message.includes("fetch")) {
-      throw new Error("Unable to connect to server. Please check your internet connection.");
-    }
+    console.log("Login error:", error);
     throw error;
+  }
+}
+
+export async function verifyToken() {
+  try {
+    const data = await chrome.storage.local.get(["token", "lastLogin"]);
+
+    // If no token exists, return false
+    if (!data.token) {
+      return false;
+    }
+
+    // Check if token was verified in the last five minutes
+    if (data.lastLogin && new Date().getTime() - data.lastLogin < 300000) {
+      return true;
+    }
+
+    // Verify token by fetching user data
+    const response = await fetch(`${CONFIG.FULL_API_URL}/user`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${data.token}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (response.ok) {
+      const userData = await response.json();
+      // Store user data along with last login time
+      await chrome.storage.local.set({
+        user: userData,
+        lastLogin: new Date().getTime(),
+      });
+      return true;
+    }
+
+    // If verification fails, clear stored data
+    await chrome.storage.local.remove(["token", "user", "lastLogin"]);
+    return false;
+  } catch (error) {
+    chrome.runtime.sendMessage({ type: "log", data: "Token verification error:" + error });
+    return false;
   }
 }
 
 export async function logout() {
-  console.log("Connecting to server:", BASE_URL);
   try {
-    const response = await fetch(`${API_BASE_URL}/auth/logout`, {
+    const token = await chrome.storage.local.get("token");
+    const response = await fetch(`${CONFIG.FULL_API_URL}/auth/logout`, {
       method: "POST",
-      credentials: "include",
+      headers: {
+        Authorization: `Bearer ${token.token}`,
+      },
     });
 
-    console.log("Logout response status:", response.status);
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || "Logout failed");
+      throw new Error("Logout failed");
     }
-    console.log("Logout successful");
+
+    // Clear all stored data
+    await chrome.storage.local.remove(["token", "user", "lastLogin"]);
   } catch (error) {
-    console.error("Logout error:", error);
+    console.log("Logout error:", error);
     throw error;
   }
 }
 
-export async function analyzeVideo(url) {
-  console.log("Connecting to server:", BASE_URL);
-  console.log("Analyzing video:", url);
+export async function sendVideosForAnalysis(videos) {
+  if (videos.length > 4) {
+    throw new Error("Maximum 4 videos can be analyzed at once");
+  }
+
   try {
-    const response = await fetch(`${API_BASE_URL}/videos/analyze`, {
+    const token = await chrome.storage.local.get("token");
+    const response = await fetch(`${CONFIG.FULL_API_URL}/videos/analyze`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        Authorization: `Bearer ${token.token}`,
       },
-      credentials: "include",
-      body: JSON.stringify({ url }),
+      body: JSON.stringify({ videos }),
     });
 
-    console.log("Analysis response status:", response.status);
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || "Analysis failed");
+      throw new Error("Failed to send videos for analysis");
     }
 
-    const result = await response.json();
-    console.log("Analysis result:", result);
-    return result;
+    return await response.json();
   } catch (error) {
-    console.error("Analysis error:", error);
+    console.log("Analysis error:", error);
     throw error;
   }
 }
 
-class Api {
-  constructor() {
-    this.baseUrl = BASE_URL;
-  }
-
-  async sendVideosForAnalysis(videos) {
-    console.log("Connecting to server:", this.baseUrl);
-    console.log("Sending videos for analysis:", videos);
-    try {
-      const response = await fetch(`${this.baseUrl}/api/videos/analyze`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify({ videos }),
-      });
-
-      console.log("Bulk analysis response status:", response.status);
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Failed to send videos for analysis");
-      }
-
-      const result = await response.json();
-      console.log("Bulk analysis result:", result);
-      return result;
-    } catch (error) {
-      console.error("Bulk analysis error:", error);
-      throw error;
-    }
-  }
-}
-
-const api = new Api();
-export { api, BASE_URL };
+export { CONFIG };

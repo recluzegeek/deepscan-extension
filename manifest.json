@@ -8,14 +8,24 @@
     "64": "assets/icons/icon64.png",
     "128": "assets/icons/icon128.png"
   },
-  "permissions": ["activeTab", "storage", "tabs", "cookies", "webRequest"],
+  "permissions": [
+    "activeTab",
+    "storage",
+    "tabs",
+    "cookies",
+    "webRequest",
+    "scripting"
+  ],
   "host_permissions": ["http://localhost:8000/*"],
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com"
   },
   "web_accessible_resources": [
     {
-      "resources": ["lib/fontawesome/webfonts/*"],
+      "resources": [
+        "lib/fontawesome/webfonts/*",
+        "src/config/config.js"
+      ],
       "matches": ["<all_urls>"]
     }
   ],
@@ -32,7 +42,8 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["src/content/content.js"]
+      "js": ["src/content/content.js"],
+      "run_at": "document_start"
     }
   ]
 }

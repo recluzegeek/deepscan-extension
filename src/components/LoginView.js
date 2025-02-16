@@ -1,12 +1,13 @@
 import { ref, h } from "../lib/vue.runtime.esm-browser.js";
 import * as api from "../utils/api.js";
+import { CONFIG } from "../config/config.js";
 
 const formatError = (error) => {
   if (error.message.includes("fetch")) {
     return "Unable to connect to server. Please check your internet connection.";
   }
   if (error.message.includes("invalid")) {
-    return "Server error. Please try again later.";
+    return "Invalid credentials. Please try again.";
   }
   return error.message || "An unexpected error occurred";
 };
@@ -29,14 +30,9 @@ export default {
         emit("login-success");
       } catch (err) {
         error.value = formatError(err);
-        // Send error to background script for logging
         chrome.runtime.sendMessage({
-          type: "error",
-          error: {
-            message: err.message,
-            stack: err.stack,
-            context: "login",
-          },
+          type: "log",
+          data: { message: err.message, context: "login" },
         });
       } finally {
         loading.value = false;
@@ -44,21 +40,22 @@ export default {
     };
 
     return () =>
-      h("div", { class: "login-container", style: "padding: 20px;" }, [
-        h("h2", { style: "margin-bottom: 16px;" }, "Welcome Back!"),
-        h(
-          "p",
-          {
-            class: "login-subtitle",
-            style: "margin-bottom: 24px; color: #666;",
-          },
-          "Login to detect deepfake videos"
-        ),
+      h("div", { class: "login-container" }, [
+        // Centered logo and branding
+        h("div", { class: "login-header" }, [
+          h("img", {
+            src: "../../assets/icons/icon128.png",
+            alt: "DeepScan Logo",
+            class: "login-logo",
+          }),
+          h("h1", { class: "brand-name" }, "DeepScan"),
+          h("p", { class: "brand-tagline" }, "AI-Powered Deepfake Detection"),
+        ]),
 
         h(
           "form",
           {
-            style: "display: flex; flex-direction: column; gap: 16px;",
+            class: "login-form",
             onSubmit: (e) => {
               e.preventDefault();
               handleLogin();
@@ -74,8 +71,10 @@ export default {
                 onInput: (e) => (email.value = e.target.value),
                 required: true,
                 disabled: loading.value,
+                class: "login-input",
               }),
             ]),
+
             h("div", { class: "input-group" }, [
               h("i", { class: "fas fa-lock" }),
               h("input", {
@@ -85,81 +84,54 @@ export default {
                 onInput: (e) => (password.value = e.target.value),
                 required: true,
                 disabled: loading.value,
+                class: "login-input",
               }),
               h("i", {
-                class: `fas ${showPassword.value ? "fa-eye-slash" : "fa-eye"}`,
-                style: "cursor: pointer;",
+                class: `fas ${showPassword.value ? "fa-eye-slash" : "fa-eye"} password-toggle`,
                 onClick: () => (showPassword.value = !showPassword.value),
               }),
             ]),
+
+            error.value &&
+              h("div", { class: "error-message" }, [h("i", { class: "fas fa-exclamation-circle" }), error.value]),
+
             h(
               "button",
               {
                 type: "submit",
                 class: "login-btn",
                 disabled: loading.value,
-                style: "margin-top: 8px;",
               },
               [
-                h(
-                  "span",
-                  {
-                    style: {
-                      display: loading.value ? "none" : "inline",
-                    },
-                  },
-                  "Login"
-                ),
-                h("span", {
-                  class: "loading-spinner",
-                  style: {
-                    display: loading.value ? "inline" : "none",
-                  },
-                }),
+                loading.value
+                  ? h("div", { class: "loading-spinner" })
+                  : [h("i", { class: "fas fa-sign-in-alt" }), "Sign In"],
               ]
             ),
           ]
         ),
 
-        // Only show error message if there is an error
-        error.value &&
+        h("div", { class: "login-footer" }, [
           h(
-            "div",
+            "a",
             {
-              class: "error-message",
-              style: "margin-top: 16px;",
+              href: `${CONFIG.WEB_URL}/register`,
+              target: "_blank",
+              class: "footer-link",
             },
-            [h("i", { class: "fas fa-exclamation-circle" }), h("span", { style: "margin-left: 8px;" }, error.value)]
+            "Create Account"
           ),
-
-        h(
-          "div",
-          {
-            class: "login-footer",
-            style: "margin-top: 24px; display: flex; gap: 16px; justify-content: center;",
-          },
-          [
-            h(
-              "a",
-              {
-                href: "http://localhost:8000/register",
-                target: "_blank",
-                style: "color: #666; text-decoration: none;",
-              },
-              "Create Account"
-            ),
-            h("span", { style: "color: #666;" }, "|"),
-            h(
-              "a",
-              {
-                href: "http://localhost:8000/password/reset",
-                target: "_blank",
-                style: "color: #666; text-decoration: none;",
-              },
-              "Forgot Password?"
-            ),
-          ]
-        ),
+          h("span", { class: "divider" }, "•"),
+          h(
+            "a",
+            {
+              href: `${CONFIG.WEB_URL}/password/reset`,
+              target: "_blank",
+              class: "footer-link",
+            },
+            "Forgot Password?"
+          ),
+        ]),
       ]);
   },
 };

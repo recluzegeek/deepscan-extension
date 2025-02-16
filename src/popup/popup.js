@@ -1,6 +1,5 @@
-import { createApp, ref, onMounted, h } from "../lib/vue.runtime.esm-browser.js";
+import { createApp, ref, onMounted, h, Fragment } from "../lib/vue.runtime.esm-browser.js";
 import * as api from "../utils/api.js";
-import { BASE_URL } from "../utils/api.js";
 import LoginView from "../components/LoginView.js";
 import VideoView from "../components/VideoView.js";
 
@@ -11,118 +10,93 @@ const app = createApp({
   },
   setup() {
     const isLoggedIn = ref(false);
-    const email = ref("");
-    const password = ref("");
+    const loading = ref(true);
     const videos = ref([]);
     const error = ref(null);
-    const analyzing = ref(false);
-    const loading = ref(false);
-    const showPassword = ref(false);
-
-    onMounted(async () => {
-      console.log("App mounted, checking auth status...");
-      try {
-        // Check if there's a valid session cookie
-        const response = await fetch(`${BASE_URL}/api/auth/check`, {
-          credentials: "include",
-        });
-        console.log("Auth check response:", response.status, response.statusText);
-        isLoggedIn.value = response.ok;
-        console.log("Auth status:", isLoggedIn.value ? "Logged in" : "Not logged in");
-
-        if (isLoggedIn.value) {
-          await loadVideos();
-        }
-      } catch (err) {
-        console.error("Auth check failed:", err);
-        isLoggedIn.value = false;
-      }
-    });
-
-    const handleLoginSuccess = () => {
-      console.log("Login success handler called");
-      isLoggedIn.value = true;
-      loadVideos(); // Load videos after successful login
-    };
-
-    const handleLogout = async () => {
-      console.log("Logout handler called");
-      try {
-        await api.logout();
-        console.log("Logout successful");
-        isLoggedIn.value = false;
-        videos.value = [];
-      } catch (err) {
-        console.error("Logout failed:", err);
-      }
-    };
 
     const loadVideos = async () => {
-      console.log("Loading videos...");
       try {
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        console.log("Current tab:", tab);
-        chrome.tabs.sendMessage(tab.id, { action: "getVideos" }, (response) => {
-          console.log("Content script response:", response);
-          if (response && response.videos) {
-            videos.value = response.videos.map((video) => ({
-              ...video,
-              selected: false,
-            }));
-            console.log("Videos loaded:", videos.value);
-          } else {
-            console.warn("No videos found in response:", response);
+
+        // First try to get videos from storage for this tab
+        const storedData = await chrome.storage.local.get(`videos_${tab.id}`);
+        if (storedData[`videos_${tab.id}`]) {
+          videos.value = storedData[`videos_${tab.id}`];
+          return;
+        }
+
+        // If no stored videos, inject content script and get fresh data
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          files: ["src/content/content.js"],
+        });
+
+        chrome.tabs.sendMessage(tab.id, { action: "getVideos" }, async (response) => {
+          if (response?.videos) {
+            videos.value = response.videos;
+            // Store videos for this tab
+            await chrome.storage.local.set({ [`videos_${tab.id}`]: response.videos });
           }
         });
       } catch (err) {
-        console.error("Error loading videos:", err);
+        console.log("Error loading videos:", err);
+        error.value = "Failed to load videos";
       }
     };
 
-    const sendSelectedVideos = async () => {
-      const selectedVideos = videos.value.filter((video) => video.selected);
-      console.log("Sending selected videos:", selectedVideos);
+    const checkAuthStatus = async () => {
       try {
-        analyzing.value = true;
-        error.value = null;
-        const result = await api.sendVideosForAnalysis(selectedVideos);
-        console.log("Analysis result:", result);
-        analyzing.value = false;
-        videos.value = videos.value.map((video) => ({
-          ...video,
-          selected: false,
-        }));
-        alert("Videos sent for deepfake analysis. Check the web platform for results.");
+        const token = await chrome.storage.local.get("token");
+        if (token.token) {
+          const isValid = await api.verifyToken();
+          isLoggedIn.value = isValid;
+          if (isValid) {
+            await loadVideos();
+          }
+        }
       } catch (err) {
-        console.error("Analysis failed:", err);
-        analyzing.value = false;
-        error.value = "Failed to send videos for analysis. Please try again.";
+        console.log("Auth check failed:", err);
+        isLoggedIn.value = false;
+      } finally {
+        loading.value = false;
       }
     };
 
-    const hasSelectedVideos = () => {
-      return videos.value.some((video) => video.selected);
+    onMounted(async () => {
+      await checkAuthStatus();
+    });
+
+    const handleLoginSuccess = async () => {
+      isLoggedIn.value = true;
+      await loadVideos();
+    };
+
+    const handleLogout = async () => {
+      try {
+        await api.logout();
+        isLoggedIn.value = false;
+        videos.value = [];
+        // Clear stored videos and token
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        await chrome.storage.local.remove([`videos_${tab.id}`, "token"]);
+      } catch (err) {
+        console.log("Logout error:", err);
+        error.value = "Logout failed";
+      }
     };
 
     return () =>
       h("div", { id: "app" }, [
-        h("div", { class: "header" }, [
-          h("img", {
-            src: "../../assets/icons/icon16.png",
-            alt: "DeepScan Logo",
-            style: "width: 16px; height: 16px; margin-right: 8px;",
-          }),
-          h("h1", {}, "DeepScan"),
-        ]),
-
-        isLoggedIn.value
+        loading.value
+          ? h("div", { class: "loading-container" }, [
+              h("div", { class: "loading-spinner" }),
+              h("p", null, "Loading..."),
+            ])
+          : isLoggedIn.value
           ? h(VideoView, {
-              onLogout: handleLogout,
               videos: videos.value,
-              analyzing: analyzing.value,
+              onLogout: handleLogout,
               error: error.value,
-              onSendVideos: sendSelectedVideos,
-              hasSelectedVideos: hasSelectedVideos(),
             })
           : h(LoginView, {
               onLoginSuccess: handleLoginSuccess,
